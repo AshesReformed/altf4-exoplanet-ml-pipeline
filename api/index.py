@@ -239,6 +239,16 @@ def generate_eda_plots(df):
     return plots
 
 
+@app.route("/refetch")
+def refetch():
+    """Route to force a live API fetch from NASA and recreate SQLite database."""
+    try:
+        run_pipeline()
+    except Exception as e:
+        print(f"Refetch warning: {e}")
+    return redirect("/")
+
+
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def home(path=""):
@@ -282,13 +292,6 @@ def home(path=""):
         current_limit=current_limit_str,
         plots=plots,
     )
-
-
-@app.route("/refetch")
-def refetch():
-    """Route to force a live API fetch from NASA and recreate SQLite database."""
-    run_pipeline()
-    return redirect(url_for("home"))
 
 
 if __name__ == "__main__":
