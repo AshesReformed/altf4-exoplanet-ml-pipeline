@@ -239,8 +239,9 @@ def generate_eda_plots(df):
     return plots
 
 
-@app.route("/")
-def home():
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def home(path=""):
     if not config.DB_PATH.exists():
         run_pipeline()
 
