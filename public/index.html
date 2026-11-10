@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exoplanet size classification</title>
+  <meta name="description" content="Confirmed exoplanets from the NASA Exoplanet Archive, cleaned, labelled by radius and explored.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="page-header">
+    <h1>Exoplanet size classification</h1>
+    <p class="lead">
+      <span data-field="total_planets">Confirmed</span> planets from the NASA Exoplanet Archive,
+      validated, stored in SQLite and labelled by radius: terrestrial below
+      <span data-field="radius_threshold">2.0</span> Earth radii, larger above.
+    </p>
+  </header>
+
+  <main>
+    <section class="hero">
+      <figure>
+        <img src="plots/radius_distribution.png" alt="Histograms of planet radius for transit planets, showing two peaks with a dip between them and a vertical line at the class boundary">
+        <figcaption>
+          Planet radius for transit planets. The histogram has two peaks with a dip between
+          them, known as the radius valley. The dashed line is the class boundary used in this project.
+        </figcaption>
+      </figure>
+    </section>
+
+    <dl class="figures" id="figures">
+      <div><dt>All planets</dt><dd data-field="total_planets">–</dd></div>
+      <div><dt><span data-field="training_method">Transit</span> planets</dt><dd data-field="training_planets">–</dd></div>
+      <div class="terrestrial"><dt>Terrestrial</dt><dd data-field="terrestrial">–</dd></div>
+      <div class="larger"><dt>Larger</dt><dd data-field="larger">–</dd></div>
+    </dl>
+
+    <section>
+      <h2>Which planets are used</h2>
+      <p>
+        Radial-velocity, microlensing and imaging surveys mostly find giant planets, and every
+        planet they find has a measured mass. Transit surveys measure radius directly, so the analysis
+        and the later models use transit planets only. The other methods stay in the database.
+      </p>
+      <figure>
+        <img src="plots/method_comparison.png" alt="Bar charts comparing discovery methods by share of terrestrial planets and share with a measured mass" loading="lazy">
+      </figure>
+    </section>
+
+    <section>
+      <h2>Data quality</h2>
+      <p>
+        Mass is missing for most transit planets, because small planets are hard to weigh.
+        Masses that NASA estimated from the radius were removed, since they would leak the
+        answer into the features. Every other feature is missing for only a small share of planets.
+      </p>
+      <figure>
+        <img src="plots/data_overview.png" alt="Bar charts of class balance and missing values per feature for transit planets" loading="lazy">
+      </figure>
+    </section>
+
+    <section>
+      <h2>How the two classes differ</h2>
+      <p>
+        Terrestrial planets tend to orbit closer, receive more starlight and have lower mass.
+        The distributions overlap heavily, so no single measurement separates the classes on its own.
+      </p>
+      <figure>
+        <img src="plots/feature_by_class.png" alt="Histograms of nine features, split by planet class" loading="lazy">
+      </figure>
+      <div class="table-scroll">
+        <table class="medians" id="medians">
+          <caption>Median value of each feature, transit planets</caption>
+          <thead>
+            <tr><th scope="col">Feature</th><th scope="col" class="num larger">Larger</th><th scope="col" class="num terrestrial">Terrestrial</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>How the measurements relate</h2>
+      <p>
+        The scatter plot is coloured by radius, so its horizontal boundary is built in. It shows where
+        planets sit, not how well the other measurements separate them. In the heatmap, several pairs
+        are strongly correlated: orbital period with orbit size, starlight with temperature, and the three
+        star properties with each other. Those features carry much of the same information.
+      </p>
+      <div class="pair">
+        <figure><img src="plots/period_vs_radius.png" alt="Scatter plot of orbital period against planet radius, coloured by class" loading="lazy"></figure>
+        <figure><img src="plots/correlation_heatmap.png" alt="Spearman correlation heatmap of planet and star features" loading="lazy"></figure>
+      </div>
+    </section>
+
+    <section id="browse">
+      <h2>Browse the planets</h2>
+      <form class="controls" onsubmit="return false">
+        <label>Search
+          <input type="search" id="search" placeholder="Planet or star name" autocomplete="off">
+        </label>
+        <label>Discovery method
+          <select id="method"><option value="">All methods</option></select>
+        </label>
+        <label>Class
+          <select id="class">
+            <option value="">All classes</option>
+            <option value="1">Terrestrial</option>
+            <option value="0">Larger</option>
+          </select>
+        </label>
+      </form>
+      <p class="status" id="table-status" role="status">Loading planets…</p>
+      <div class="table-scroll">
+        <table class="planets" id="planets">
+          <thead><tr id="planets-head"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <nav class="pager" aria-label="Table pages">
+        <button type="button" id="prev">Previous</button>
+        <span id="page-info"></span>
+        <button type="button" id="next">Next</button>
+      </nav>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Data from the <a href="https://exoplanetarchive.ipac.caltech.edu/">NASA Exoplanet Archive</a>
+      (<code>pscomppars</code> table). Built with Python, pandas, Pydantic and SQLite.
+      Site data built on <span data-field="built_on">–</span>.
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
