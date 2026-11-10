@@ -1,8 +1,11 @@
+import os
+import tempfile
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / "exoplanets.db"
-PLOTS_DIR = BASE_DIR / "plots"
+# Vercel's filesystem is read-only except for the temp folder.
+PLOTS_DIR = Path(tempfile.gettempdir()) / "plots" if os.environ.get("VERCEL") else BASE_DIR / "plots"
 RAW_SNAPSHOT_PATH = BASE_DIR / "data" / "raw" / "pscomppars.json"
 
 TABLE_NAME = "exoplanets"
