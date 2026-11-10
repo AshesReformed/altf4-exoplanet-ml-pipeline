@@ -1,28 +1,15 @@
-import os
-import tempfile
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
-
-# On Vercel (read-only filesystem), fall back to /tmp if local DB does not exist
-if (BASE_DIR / "exoplanets.db").exists():
-    DB_PATH = BASE_DIR / "exoplanets.db"
-elif os.environ.get("VERCEL"):
-    DB_PATH = Path(tempfile.gettempdir()) / "exoplanets.db"
-else:
-    DB_PATH = BASE_DIR / "exoplanets.db"
-
-# Raw snapshot path setup
-if (BASE_DIR / "data" / "raw" / "pscomppars.json").exists():
-    RAW_SNAPSHOT_PATH = BASE_DIR / "data" / "raw" / "pscomppars.json"
-elif os.environ.get("VERCEL"):
-    RAW_SNAPSHOT_PATH = Path(tempfile.gettempdir()) / "pscomppars.json"
-else:
-    RAW_SNAPSHOT_PATH = BASE_DIR / "data" / "raw" / "pscomppars.json"
-
+DB_PATH = BASE_DIR / "exoplanets.db"
+PUBLIC_DIR = BASE_DIR / "public"
+PLOTS_DIR = PUBLIC_DIR / "plots"
+SITE_DATA_DIR = PUBLIC_DIR / "data"
+RAW_SNAPSHOT_PATH = BASE_DIR / "raw_data" / "pscomppars.json"
 TABLE_NAME = "exoplanets"
 
 NASA_TAP_URL = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
+# One row per planet. The "ps" table has several rows per planet.
 NASA_SOURCE_TABLE = "pscomppars"
 
 ID_COLUMN = "pl_name"
@@ -43,9 +30,15 @@ FEATURE_COLUMNS = [
     "st_met",
 ]
 
+# Machine learning uses transit planets only. Other methods mostly find giant
+# planets, and their radii are probably derived from mass rather than measured.
 TRAINING_METHOD = "Transit"
+
+# Planets smaller than this radius (in Earth radii) are labelled terrestrial.
 RADIUS_THRESHOLD = 2.0
 
+# NASA estimates many missing masses from the planet radius. Those values
+# would leak the target into the features, so they are discarded.
 MASS_PROVENANCE_COLUMN = "pl_bmassprov"
 ESTIMATED_MASS_KEYWORD = "relationship"
 
