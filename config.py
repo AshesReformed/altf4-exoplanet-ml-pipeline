@@ -40,3 +40,4 @@ ESTIMATED_MASS_KEYWORD = "relationship"
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
+SUMMARY_TABLE = "pipeline_summary"

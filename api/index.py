@@ -17,11 +17,13 @@ from flask import Flask, jsonify, render_template_string, request, send_from_dir
 import config
 from data_access import load_dataframe
 from eda_analysis import generate_plots
+from eda_extra import load_summary, period_bin_table
 
 app = Flask(__name__)
 
 ROW_LIMITS = [25, 50, 100, 250, 500]
 DEFAULT_LIMIT = 50
+METHOD_CHOICES = [config.TRAINING_METHOD, "Radial Velocity", "Imaging", "All"]
 
 PLOT_LOCK = threading.Lock()
 
@@ -121,6 +123,8 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
+                        {% if funnel %}<p class="text-muted small mb-1"><strong>Pipeline:</strong> {{ funnel }}</p>{% endif %}
+            <p class="text-muted small mb-4">A model that always guesses the majority class would score {{ baseline }}, so later models must beat that.</p>
             <ul class="nav nav-tabs mb-4" id="mainTab" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link active fw-bold" id="graphs-tab" data-bs-toggle="tab" data-bs-target="#graphs" type="button" role="tab">📊 Visual EDA Graphs</button>
@@ -145,17 +149,32 @@ HTML_TEMPLATE = """
                             {% endif %}
                         </div>
                         {% endfor %}
+                                                {% if period_html %}
+                        <div class="col-12">
+                            <h5 class="fw-bold mb-1 text-secondary">Terrestrial Share by Orbital Period</h5>
+                            <p class="text-muted small mb-2">Transit planets. Part of this trend is detection bias: small planets on long orbits are hard to find.</p>
+                            {{ period_html | safe }}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 
                 <div class="tab-pane fade" id="table" role="tabpanel">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                        <h5 class="mb-0 fw-bold">SQLite Table View (first {{ limit }} planets by name)</h5>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <span class="btn btn-outline-secondary disabled">Show:</span>
-                            {% for option in limits %}
-                            <a href="/?limit={{ option }}#table" class="btn btn-outline-primary {% if option == limit %}active{% endif %}">{{ option }}</a>
-                            {% endfor %}
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                        <h5 class="mb-0 fw-bold">SQLite Table View ({{ table_method }}, first {{ limit }} by name)</h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <span class="btn btn-outline-secondary disabled">Show:</span>
+                                {% for option in limits %}
+                                <a href="/?limit={{ option }}&method={{ table_method | urlencode }}#table" class="btn btn-outline-primary {% if option == limit %}active{% endif %}">{{ option }}</a>
+                                {% endfor %}
+                            </div>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <span class="btn btn-outline-secondary disabled">Method:</span>
+                                {% for choice in method_choices %}
+                                <a href="/?limit={{ limit }}&method={{ choice | urlencode }}#table" class="btn btn-outline-primary {% if choice == table_method %}active{% endif %}">{{ choice }}</a>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
                     <div class="table-container border rounded">
@@ -167,6 +186,17 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+        <div class="container">
+        <div class="bg-white p-4 rounded-4 shadow-sm mb-4">
+            <h5 class="fw-bold">Limitations</h5>
+            <ul class="small text-muted">
+                <li>Detection bias: transit surveys favour large, close-in planets, so these counts do not represent all planets.</li>
+                <li>The {{ threshold }} R_Earth cutoff is a size convention, not a measurement of composition. The class boundary in the plots is the label itself.</li>
+                <li>Masses that NASA estimated from radius were removed, so they cannot leak the label into the features.</li>
+            </ul>
+            <p class="small text-muted mb-0">This research has made use of the NASA Exoplanet Archive, which is operated by the California Institute of Technology, under contract with the National Aeronautics and Space Administration under the Exoplanet Exploration Program.</p>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         if (window.location.hash === "#table") {
@@ -210,6 +240,10 @@ def parse_limit(value):
     return limit if limit in ROW_LIMITS else DEFAULT_LIMIT
 
 
+def parse_method(value):
+    return value if value in METHOD_CHOICES else config.TRAINING_METHOD
+
+
 @app.route("/")
 def home():
     try:
@@ -220,15 +254,36 @@ def home():
 
     subset = df[df[config.METHOD_COLUMN] == config.TRAINING_METHOD]
     terrestrial = int(subset[config.TARGET_COLUMN].sum())
+    baseline = max(terrestrial, len(subset) - terrestrial) / len(subset)
     limit = parse_limit(request.args.get("limit"))
+    table_method = parse_method(request.args.get("method"))
 
     try:
         ensure_plots(df)
     except Exception as error:
         app.logger.error("Plot generation failed: %s", error)
 
+    try:
+        s = load_summary()
+        funnel = (
+            f"{s['raw_rows']:,} rows from NASA → {s['dropped_invalid']:,} dropped (missing name or radius) → "
+            f"{s['duplicates_removed']:,} duplicates removed → {s['loaded_rows']:,} loaded → "
+            f"{s['transit_rows']:,} transit planets analysed. "
+            f"{s['estimated_masses_removed']:,} masses estimated from radius were removed. "
+            f"Data snapshot: {s['snapshot_date']}."
+        )
+        period_html = period_bin_table().to_html(
+            classes="table table-sm table-bordered w-auto", index=False
+        )
+    except Exception as error:
+        app.logger.error("Summary unavailable: %s", error)
+        funnel, period_html = None, None
+
     plots = [{**plot, "available": (config.PLOTS_DIR / plot["file"]).exists()} for plot in PLOTS]
-    table_html = df.head(limit).to_html(classes="table table-striped table-hover mb-0", index=False)
+    table_df = df if table_method == "All" else df[df[config.METHOD_COLUMN] == table_method]
+    table_html = table_df.head(limit).to_html(
+        classes="table table-striped table-hover mb-0", index=False, na_rep="—"
+    )
 
     return render_template_string(
         HTML_TEMPLATE,
@@ -238,8 +293,13 @@ def home():
         larger=f"{len(subset) - terrestrial:,}",
         method=config.TRAINING_METHOD,
         threshold=config.RADIUS_THRESHOLD,
+        baseline=f"{baseline:.0%}",
+        funnel=funnel,
+        period_html=period_html,
         plots=plots,
         table_html=table_html,
+        table_method=table_method,
+        method_choices=METHOD_CHOICES,
         limit=limit,
         limits=ROW_LIMITS,
     )

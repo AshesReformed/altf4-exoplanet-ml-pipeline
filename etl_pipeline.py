@@ -3,6 +3,7 @@ import sqlite3
 from collections import Counter
 from contextlib import closing
 from typing import Optional
+from datetime import date
 
 import pandas as pd
 import requests
@@ -159,12 +160,30 @@ def load_to_sqlite(df: pd.DataFrame) -> None:
         conn.commit()
     print(f"[LOAD] Saved {len(df):,} rows to '{config.DB_PATH.name}'.")
 
+def save_summary(raw_rows, valid_rows, masses_removed, df) -> None:
+    summary = {
+        "snapshot_date": date.today().isoformat(),
+        "raw_rows": raw_rows,
+        "dropped_invalid": raw_rows - valid_rows,
+        "duplicates_removed": valid_rows - len(df),
+        "estimated_masses_removed": masses_removed,
+        "loaded_rows": len(df),
+        "transit_rows": int((df[config.METHOD_COLUMN] == config.TRAINING_METHOD).sum()),
+    }
+    with closing(sqlite3.connect(config.DB_PATH)) as conn:
+        pd.DataFrame([summary]).to_sql(config.SUMMARY_TABLE, conn, if_exists="replace", index=False)
+
 
 def run_pipeline() -> None:
-    df = validate_records(fetch_raw_data())
+    raw = fetch_raw_data()
+    df = validate_records(raw)
+    valid_rows = len(df)
+    masses_before = int(df["pl_bmasse"].notna().sum())
     df = remove_estimated_masses(df)
+    masses_removed = masses_before - int(df["pl_bmasse"].notna().sum())
     df = add_target(df)
     load_to_sqlite(df)
+    save_summary(len(raw), valid_rows, masses_removed, df)
 
 
 if __name__ == "__main__":
