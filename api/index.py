@@ -31,25 +31,25 @@ PLOTS = [
     {
         "file": "radius_distribution.png",
         "title": "Planetary Radius Valley (Fulton Gap)",
-        "caption": "Transit planets. The red line is the 2.0 Earth-radius class boundary.",
+        "caption": "Transit planets. In the zoom panel a shallow dip separates a peak near 1.5 from a peak near 2.4 Earth radii, and the red 2.0 boundary sits at the dip's upper edge. The boundary is a size convention, not a measured composition limit.",
         "wide": False,
     },
     {
         "file": "correlation_heatmap.png",
         "title": "Feature Correlation Heatmap",
-        "caption": "Spearman correlations, transit planets.",
+        "caption": "Spearman correlations, transit planets. The radius row is the source of the label. Period and orbit size, insolation and equilibrium temperature, and the three star properties are computed from each other, so the nine features hold fewer independent signals than their number suggests.",
         "wide": False,
     },
     {
         "file": "method_comparison.png",
         "title": "Discovery Methods",
-        "caption": "Share of terrestrial planets and share with a measured mass, all planets.",
+        "caption": "Share of terrestrial planets and share with a measured mass, all planets. Non-transit radii are probably derived from mass (microlensing does not measure radius), which is why the analysis uses transit planets only.",
         "wide": True,
     },
     {
         "file": "feature_by_class.png",
         "title": "Feature Distributions by Class",
-        "caption": "Transit planets.",
+        "caption": "Transit planets. Only mass separates the classes clearly, and it is missing for most of these planets. The other features overlap heavily.",
         "wide": True,
     },
     {
